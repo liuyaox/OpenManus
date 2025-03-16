@@ -35,16 +35,16 @@ class ToolCallAgent(ReActAgent):
     async def think(self) -> bool:
         """Process current state and decide next actions using tools"""
         if self.next_step_prompt:
-            user_msg = Message.user_message(self.next_step_prompt)
-            self.messages += [user_msg]
+            user_msg = Message.user_message(self.next_step_prompt)  # YAO: 真实运行时，这里用的是Manus那较长的next_step_prompt
+            self.messages += [user_msg]         # YAO: TODO 每次step(即think)时都会重复添加这一大段next_step_prompt ??? 都要重复判断要不要使用那5个工具！
 
         # Get response with tool options
         response = await self.llm.ask_tool(
             messages=self.messages,
-            system_msgs=[Message.system_message(self.system_prompt)]
+            system_msgs=[Message.system_message(self.system_prompt)]    # YAO: 真实运行时，这里用的是Manus那较长的system_prompt
             if self.system_prompt
             else None,
-            tools=self.available_tools.to_params(),
+            tools=self.available_tools.to_params(),   # YAO: 所有可用tools都是通过这种方式来让LLM调用的！真实运行时，这里用的是Manus那5个tools，不是ToolCallAgent这2个
             tool_choice=self.tool_choices,
         )
         self.tool_calls = response.tool_calls
@@ -71,7 +71,7 @@ class ToolCallAgent(ReActAgent):
                     return True
                 return False
 
-            # Create and add assistant message
+            # Create and add assistant message      YAO: 不管tool_calls、还是Exception，都以assistant身份存入memory.messages
             assistant_msg = (
                 Message.from_tool_calls(
                     content=response.content, tool_calls=self.tool_calls
@@ -92,7 +92,7 @@ class ToolCallAgent(ReActAgent):
         except Exception as e:
             logger.error(f"🚨 Oops! The {self.name}'s thinking process hit a snag: {e}")
             self.memory.add_message(
-                Message.assistant_message(
+                Message.assistant_message(      # YAO: 也要把Exception信息存入memory.messages，以便后续解决这个Exeption！
                     f"Error encountered while processing: {str(e)}"
                 )
             )
@@ -108,7 +108,7 @@ class ToolCallAgent(ReActAgent):
             return self.messages[-1].content or "No content or commands to execute"
 
         results = []
-        for command in self.tool_calls:
+        for command in self.tool_calls:     # YAO: 可能会有多个tool_call：遍历tool_calls，对于每个tool_call，都运行结果、添加到memory.messages里
             result = await self.execute_tool(command)
             logger.info(
                 f"🎯 Tool '{command.function.name}' completed its mission! Result: {result}"
@@ -148,7 +148,7 @@ class ToolCallAgent(ReActAgent):
             )
 
             # Handle special tools like `finish`
-            await self._handle_special_tool(name=name, result=result)
+            await self._handle_special_tool(name=name, result=result)   # YAO: 注意注意注意！！！就是在这里，state会变成FINISHED（当tool是terminate时），从而跳出当前step的循环
 
             return observation
         except json.JSONDecodeError:

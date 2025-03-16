@@ -18,7 +18,7 @@ async def run_flow():
         if prompt.strip().isspace() or not prompt:
             logger.warning("Empty prompt provided.")
             return
-
+        
         flow = FlowFactory.create_flow(
             flow_type=FlowType.PLANNING,
             agents=agents,

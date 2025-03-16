@@ -24,7 +24,7 @@ class BaseTool(ABC, BaseModel):
         """Convert tool to function call format."""
         return {
             "type": "function",
-            "function": {
+            "function": {                   # YAO: function calling时function的标准定义
                 "name": self.name,
                 "description": self.description,
                 "parameters": self.parameters,
@@ -51,7 +51,7 @@ class ToolResult(BaseModel):
         ):
             if field and other_field:
                 if concatenate:
-                    return field + other_field
+                    return field + other_field      # YAO: 字段直接相加（字符串拼接）
                 raise ValueError("Cannot combine tool results")
             return field or other_field
 

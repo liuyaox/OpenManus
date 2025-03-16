@@ -19,7 +19,7 @@ class PlanningTool(BaseTool):
 
     name: str = "planning"
     description: str = _PLANNING_TOOL_DESCRIPTION
-    parameters: dict = {
+    parameters: dict = {  # YAO: function calling时function标准定义里的parameters  整合create,update,list等所有函数，一起描述，比分别单独描述，既描述上方便，也LLM调用上简单
         "type": "object",
         "properties": {
             "command": {
@@ -150,7 +150,7 @@ class PlanningTool(BaseTool):
             "step_notes": [""] * len(steps),
         }
 
-        self.plans[plan_id] = plan
+        self.plans[plan_id] = plan       # YAO: 所谓create_plan，核心处理在这2行：更新self.plans和self._current_plan_id
         self._current_plan_id = plan_id  # Set as active plan
 
         return ToolResult(
@@ -191,8 +191,8 @@ class PlanningTool(BaseTool):
 
             for i, step in enumerate(steps):
                 # If the step exists at the same position in old steps, preserve status and notes
-                if i < len(old_steps) and step == old_steps[i]:
-                    new_statuses.append(old_statuses[i])
+                if i < len(old_steps) and step == old_steps[i]:  # YAO: 序号位置相同，且字符串完全匹配（这里的steps是基于old_steps生成，里面不update的step可以字符串完全匹配上？）
+                    new_statuses.append(old_statuses[i])         # YAO: 更新是整体的更新，包含不更新的(保留的)+要更新的(新增的)，并非只新增那些要更新的step
                     new_notes.append(old_notes[i])
                 else:
                     new_statuses.append("not_started")
@@ -320,6 +320,7 @@ class PlanningTool(BaseTool):
         return ToolResult(output=f"Plan '{plan_id}' has been deleted.")
 
     def _format_plan(self, plan: Dict) -> str:
+        """YAO: 基于step_status统计各种状态的数量和占比（含完成进度），展示各step的明细情况等"""
         """Format a plan for display."""
         output = f"Plan: {plan['title']} (ID: {plan['plan_id']})\n"
         output += "=" * len(output) + "\n\n"

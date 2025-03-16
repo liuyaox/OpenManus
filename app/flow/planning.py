@@ -67,9 +67,9 @@ class PlanningFlow(BaseFlow):
             if not self.primary_agent:
                 raise ValueError("No primary agent available")
 
-            # Create initial plan if input provided
+            # Create initial plan if input provided     YAO: 首次会有inut_text，之后可能没了？？？
             if input_text:
-                await self._create_initial_plan(input_text)
+                await self._create_initial_plan(input_text)  # YAO: 使用定义好的system_prompt和user_prompt+{input_text}，调用LLM去使用PlanningTool，以初始化plan
 
                 # Verify plan was created successfully
                 if self.active_plan_id not in self.planning_tool.plans:
@@ -79,7 +79,7 @@ class PlanningFlow(BaseFlow):
                     return f"Failed to create plan for: {input_text}"
 
             result = ""
-            while True:
+            while True:     # YAO: 无限循环，依次执行各个Step，直至Finished（当前step为空，或者executor状态是FINISHED）
                 # Get current step to execute
                 self.current_step_index, step_info = await self._get_current_step_info()
 
@@ -123,14 +123,14 @@ class PlanningFlow(BaseFlow):
         response = await self.llm.ask_tool(
             messages=[user_message],
             system_msgs=[system_message],
-            tools=[self.planning_tool.to_param()],
+            tools=[self.planning_tool.to_param()],  # YAO: to_param让planning_tool转化为function calling的标准定义。本质上是把Planning Tool当作function，以被LLM调用
             tool_choice="required",
         )
 
         # Process tool calls if present
         if response.tool_calls:
             for tool_call in response.tool_calls:
-                if tool_call.function.name == "planning":
+                if tool_call.function.name == "planning":   # YAO: 目前先只处理planning
                     # Parse the arguments
                     args = tool_call.function.arguments
                     if isinstance(args, str):
@@ -140,11 +140,11 @@ class PlanningFlow(BaseFlow):
                             logger.error(f"Failed to parse tool arguments: {args}")
                             continue
 
-                    # Ensure plan_id is set correctly and execute the tool
+                    # Ensure plan_id is set correctly and execute the tool  YAO: 担心模型生成的plan_id不合适，毕竟id只是唯一标识没实际含义，模型也是随便生成的
                     args["plan_id"] = self.active_plan_id
 
                     # Execute the tool via ToolCollection instead of directly
-                    result = await self.planning_tool.execute(**args)
+                    result = await self.planning_tool.execute(**args)   # YAO: 还是需要手动调用tool的，模型只是输出了要调用的tool及其参数
 
                     logger.info(f"Plan creation result: {str(result)}")
                     return
@@ -152,13 +152,13 @@ class PlanningFlow(BaseFlow):
         # If execution reached here, create a default plan
         logger.warning("Creating default plan")
 
-        # Create default plan using the ToolCollection
+        # Create default plan using the ToolCollection  YAO: 兜底方案是create plan，Steps有三步
         await self.planning_tool.execute(
             **{
                 "command": "create",
                 "plan_id": self.active_plan_id,
                 "title": f"Plan for: {request[:50]}{'...' if len(request) > 50 else ''}",
-                "steps": ["Analyze request", "Execute task", "Verify results"],
+                "steps": ["Analyze request", "Execute task", "Verify results"],     # YAO: 默认Steps是三步：分析需求(并制定子任务)、执行子任务、验证结果
             }
         )
 
@@ -194,7 +194,7 @@ class PlanningFlow(BaseFlow):
                     # Try to extract step type from the text (e.g., [SEARCH] or [CODE])
                     import re
 
-                    type_match = re.search(r"\[([A-Z_]+)\]", step)
+                    type_match = re.search(r"\[([A-Z_]+)\]", step)      # YAO: TODO 中括号内的大写字母，过于勉强了吧？哪里有明确要求？
                     if type_match:
                         step_info["type"] = type_match.group(1).lower()
 
@@ -208,13 +208,13 @@ class PlanningFlow(BaseFlow):
                         )
                     except Exception as e:
                         logger.warning(f"Error marking step as in_progress: {e}")
-                        # Update step status directly if needed
+                        # Update step status directly if needed     # YAO TODO 上面为啥不直接这样修改呢？
                         if i < len(step_statuses):
                             step_statuses[i] = PlanStepStatus.IN_PROGRESS.value
                         else:
                             while len(step_statuses) < i:
                                 step_statuses.append(PlanStepStatus.NOT_STARTED.value)
-                            step_statuses.append(PlanStepStatus.IN_PROGRESS.value)
+                            step_statuses.append(PlanStepStatus.IN_PROGRESS.value)  # YAO TODO 导致这样：前面step是not_started，但后面step却是in_progress，这合理吗？
 
                         plan_data["step_statuses"] = step_statuses
 
@@ -232,7 +232,7 @@ class PlanningFlow(BaseFlow):
         plan_status = await self._get_plan_text()
         step_text = step_info.get("text", f"Step {self.current_step_index}")
 
-        # Create a prompt for the agent to execute the current step
+        # Create a prompt for the agent to execute the current step     YAO: 当前plan整体进展，当前正在执行哪个步骤，请使用合适的tools来执行，并总结执行结果
         step_prompt = f"""
         CURRENT PLAN STATUS:
         {plan_status}
@@ -295,7 +295,7 @@ class PlanningFlow(BaseFlow):
             return result.output if hasattr(result, "output") else str(result)
         except Exception as e:
             logger.error(f"Error getting plan: {e}")
-            return self._generate_plan_text_from_storage()
+            return self._generate_plan_text_from_storage()  # YAO: 兜底！
 
     def _generate_plan_text_from_storage(self) -> str:
         """Generate plan text directly from storage if the planning tool fails."""

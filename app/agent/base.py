@@ -126,16 +126,16 @@ class BaseAgent(BaseModel, ABC):
             raise RuntimeError(f"Cannot run agent from state: {self.state}")
 
         if request:
-            self.update_memory("user", request)
+            self.update_memory("user", request)     # YAO: 当前step_prompt，以user身份放入memory.messages TODO 后续self.step()中self.think()会再次存入user身份的信息？
 
         results: List[str] = []
         async with self.state_context(AgentState.RUNNING):
             while (
-                self.current_step < self.max_steps and self.state != AgentState.FINISHED
+                self.current_step < self.max_steps and self.state != AgentState.FINISHED   # YAO: 每个Step都要循环，直至FINISHED（由_handle_special_tool来更新state）或达到全局最大Step数量(manus是20)
             ):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{self.max_steps}")
-                step_result = await self.step()
+                step_result = await self.step()     # YAO: 先think(面对当前step的任务，基于next_step_prompt，判断要使用的tools)，再act(分别执行各个tool)
 
                 # Check for stuck state
                 if self.is_stuck():
@@ -161,7 +161,7 @@ class BaseAgent(BaseModel, ABC):
         """Handle stuck state by adding a prompt to change strategy"""
         stuck_prompt = "\
         Observed duplicate responses. Consider new strategies and avoid repeating ineffective paths already attempted."
-        self.next_step_prompt = f"{stuck_prompt}\n{self.next_step_prompt}"
+        self.next_step_prompt = f"{stuck_prompt}\n{self.next_step_prompt}"  # YAO: 在例行且常规的next_step_prompt前添加：检测到重复响应，请考虑新的策略，不要重复之前已经尝试的路径
         logger.warning(f"Agent detected stuck state. Added prompt: {stuck_prompt}")
 
     def is_stuck(self) -> bool:
@@ -169,7 +169,7 @@ class BaseAgent(BaseModel, ABC):
         if len(self.memory.messages) < 2:
             return False
 
-        last_message = self.memory.messages[-1]
+        last_message = self.memory.messages[-1]     # YAO: 何时会有连续相同的content，比如运行python代码时相同的语法错误、文件保存时相同的IO错误
         if not last_message.content:
             return False
 
@@ -177,7 +177,7 @@ class BaseAgent(BaseModel, ABC):
         duplicate_count = sum(
             1
             for msg in reversed(self.memory.messages[:-1])
-            if msg.role == "assistant" and msg.content == last_message.content
+            if msg.role == "assistant" and msg.content == last_message.content  # YAO: 当连续有2+1=3个assistant的content重复时，则为stuck
         )
 
         return duplicate_count >= self.duplicate_threshold

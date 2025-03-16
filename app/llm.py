@@ -235,7 +235,7 @@ class LLM:
                 messages=messages,
                 temperature=temperature or self.temperature,
                 max_tokens=self.max_tokens,
-                tools=tools,
+                tools=tools,            # YAO: 使用tools而非functions，为什么？（是因为希望模型直接地、自发地使用它，以获得结果，不需要人工额外使用？不对吧，后续也需要人工使用的）
                 tool_choice=tool_choice,
                 timeout=timeout,
                 **kwargs,

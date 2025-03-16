@@ -25,7 +25,7 @@ class ToolCollection:
         if not tool:
             return ToolFailure(error=f"Tool {name} is invalid")
         try:
-            result = await tool(**tool_input)
+            result = await tool(**tool_input)   # YAO: tool.execute(**tool_input)，按LLM返回的tool name和input参数，执行tool
             return result
         except ToolError as e:
             return ToolFailure(error=e.message)
