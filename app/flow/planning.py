@@ -8,7 +8,7 @@ from app.agent.base import BaseAgent
 from app.flow.base import BaseFlow, PlanStepStatus
 from app.llm import LLM
 from app.logger import logger
-from app.schema import AgentState, Message
+from app.schema import AgentState, Message, ToolChoice
 from app.tool import PlanningTool
 
 
@@ -124,7 +124,7 @@ class PlanningFlow(BaseFlow):
             messages=[user_message],
             system_msgs=[system_message],
             tools=[self.planning_tool.to_param()],  # YAO: to_param让planning_tool转化为function calling的标准定义。本质上是把Planning Tool当作function，以被LLM调用
-            tool_choice="required",
+            tool_choice=ToolChoice.AUTO,
         )
 
         # Process tool calls if present
