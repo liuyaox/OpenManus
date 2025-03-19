@@ -123,7 +123,7 @@ class PlanningFlow(BaseFlow):
         response = await self.llm.ask_tool(
             messages=[user_message],
             system_msgs=[system_message],
-            tools=[self.planning_tool.to_param()],  # YAO: to_param让planning_tool转化为function calling的标准定义。本质上是把Planning Tool当作function，以被LLM调用
+            tools=[self.planning_tool.to_param()],  # YAO: to_param让planning_tool转化为function calling的标准定义  创建plan时，只有planning这1个tool可用
             tool_choice=ToolChoice.AUTO,
         )
 
@@ -370,7 +370,7 @@ class PlanningFlow(BaseFlow):
             )
 
             response = await self.llm.ask(
-                messages=[user_message], system_msgs=[system_message]
+                messages=[user_message], system_msgs=[system_message], stream=False     # YAO: 我添加了stream=False，默认是True
             )
 
             return f"Plan completed:\n\n{response}"

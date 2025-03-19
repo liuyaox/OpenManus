@@ -31,15 +31,22 @@ from app.schema import (
 REASONING_MODELS = ["o1", "o3-mini"]
 
 
+import json
+from loguru import logger as logger2
+LOG_DIR = '/Users/liuyao/fork/OpenManus/logs/logs_prompt'
+time = '{time}'
+logger2.add(f'{LOG_DIR}/log_{time}.log', rotation='00:00')
+
+
 class LLM:
     _instances: Dict[str, "LLM"] = {}
 
     def __new__(
         cls, config_name: str = "default", llm_config: Optional[LLMSettings] = None
     ):
-        if config_name not in cls._instances:
+        if config_name not in cls._instances:   # YAO: 保证LLM类的所有实例中，相同config_name对应的是同一个实例
             instance = super().__new__(cls)
-            instance.__init__(config_name, llm_config)
+            instance.__init__(config_name, llm_config)  # YAO: TODO 在这里__init__？为啥会支持config_name,llm_config参数？
             cls._instances[config_name] = instance
         return cls._instances[config_name]
 
@@ -273,6 +280,7 @@ class LLM:
                 # Update token counts
                 self.update_token_count(response.usage.prompt_tokens)
 
+                logger2.info(json.dumps(params | {'response': response.choices[0].message.content}, ensure_ascii=False))
                 return response.choices[0].message.content
 
             # Streaming request, For streaming, update estimated token count before making the request
@@ -292,6 +300,7 @@ class LLM:
             if not full_response:
                 raise ValueError("Empty response from streaming LLM")
 
+            logger2.info(json.dumps(params | {'response': full_response}, ensure_ascii=False))
             return full_response
 
         except TokenLimitExceeded:
@@ -414,6 +423,7 @@ class LLM:
             # Update token counts
             self.update_token_count(response.usage.prompt_tokens)
 
+            logger2.info(json.dumps(params | {'response': response.choices[0].message.dict()}, ensure_ascii=False))
             return response.choices[0].message
 
         except TokenLimitExceeded:
